@@ -1,0 +1,36 @@
+{
+  "name": "aiwhat",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@huggingface/inference": "^3.3.6",
+    "@prisma/client": "^6.4.1",
+    "@slack/events-api": "^3.0.1",
+    "@slack/web-api": "^7.8.0",
+    "ioredis": "^5.5.0",
+    "langchain": "^0.3.19",
+    "next": "15.2.0",
+    "openai": "^4.85.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "redis": "^4.7.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20.17.19",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.2.0",
+    "prisma": "^6.4.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
