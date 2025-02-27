@@ -1,14 +1,15 @@
 export class AIService {
   private apiKey: string;
-  private baseUrl = 'https://api.deepseek.com/v1/chat/completions';
+  private baseUrl = 'https://api.openai.com/v1/chat/completions';
 
   constructor() {
-    this.apiKey = process.env.DEEPSEEK_API_KEY!;
+    this.apiKey = process.env.OPENAI_API_KEY!;
   }
 
   async summarizeThread(messages: any[]) {
     try {
       const prompt = this.buildPrompt(messages);
+      console.log('Sending request to OpenAI with prompt:', prompt);
       
       const response = await fetch(this.baseUrl, {
         method: 'POST',
@@ -17,7 +18,7 @@ export class AIService {
           'Authorization': `Bearer ${this.apiKey}`
         },
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: 'gpt-3.5-turbo',
           messages: [
             {
               role: 'system',
@@ -27,12 +28,21 @@ export class AIService {
               role: 'user',
               content: prompt
             }
-          ]
+          ],
+          temperature: 0.7,
+          max_tokens: 500
         })
       });
 
       const data = await response.json();
-      return data.choices[0].message.content;
+      console.log('Received response from OpenAI:', data);
+
+      if (!data.choices || !data.choices[0]) {
+        console.error('Unexpected API response:', data);
+        throw new Error('Invalid API response format');
+      }
+
+      return data.choices[0].message?.content || 'Failed to generate summary';
     } catch (error) {
       console.error('Error in AI service:', error);
       throw error;
