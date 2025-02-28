@@ -14,24 +14,63 @@ datasource db {
 }
 
 model Workspace {
-  id            String   @id @default(cuid())
-  slackTeamId   String   @unique
+  id            String            @id @default(cuid())
+  slackTeamId   String            @unique
   accessToken   String
   botToken      String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
   summaries     Summary[]
+  preferences   UserPreferences[]
+  analytics     Analytics[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 }
 
 model Summary {
-  id          String    @id @default(cuid())
-  threadTs    String
-  channelId   String
-  content     String    @db.Text
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  workspaceId String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  threadTs      String
+  channelId     String
+  content       String    @db.Text
+  messageCount  Int
+  participants  String[]
+  topicType     String?
+  channelName   String?
+  requestedBy   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id])
+  workspaceId   String
+  feedback      Feedback[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([threadTs, channelId])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  summaryId String
+  summary   Summary  @relation(fields: [summaryId], references: [id])
+  userId    String
+  reaction  String
+  createdAt DateTime @default(now())
+}
+
+model UserPreferences {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  responseMode String   @default("message")
+  language    String    @default("en")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Analytics {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  eventType   String
+  userId      String
+  channelId   String
+  metadata    Json?
+  createdAt   DateTime  @default(now())
 }

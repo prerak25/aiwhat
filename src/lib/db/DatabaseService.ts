@@ -57,4 +57,72 @@ export class DatabaseService {
       },
     });
   }
+
+  async trackSummaryUsage({
+    workspaceId,
+    channelId,
+    threadTs,
+    requestedBy,
+    messageCount,
+    participants,
+    topicType
+  }: {
+    workspaceId: string;
+    channelId: string;
+    threadTs: string;
+    requestedBy: string;
+    messageCount: number;
+    participants: string[];
+    topicType?: string;
+  }) {
+    // Store summary metadata
+    const summary = await prisma.summary.create({
+      data: {
+        workspaceId,
+        channelId,
+        threadTs,
+        requestedBy,
+        messageCount,
+        participants,
+        topicType,
+        content: '', // Store the actual summary content
+      }
+    });
+
+    // Track analytics
+    await prisma.analytics.create({
+      data: {
+        workspaceId,
+        eventType: 'summary_requested',
+        userId: requestedBy,
+        channelId,
+        metadata: {
+          threadTs,
+          messageCount,
+          participantCount: participants.length,
+          topicType
+        }
+      }
+    });
+
+    return summary;
+  }
+
+  async storeFeedback({
+    summaryId,
+    userId,
+    reaction
+  }: {
+    summaryId: string;
+    userId: string;
+    reaction: string;
+  }) {
+    return prisma.feedback.create({
+      data: {
+        summaryId,
+        userId,
+        reaction
+      }
+    });
+  }
 } 

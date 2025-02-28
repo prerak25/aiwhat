@@ -27,21 +27,50 @@ export class SlackService {
       console.log('Fetching thread messages:', { channelId, threadTs });
       
       try {
-        return await this.client.conversations.replies({
+        const response = await this.client.conversations.replies({
           channel: channelId,
           ts: threadTs,
         });
+
+        // Debug log
+        console.log('Raw thread response:', JSON.stringify(response, null, 2));
+
+        if (!response.ok || !response.messages) {
+          throw new Error('Failed to fetch messages');
+        }
+
+        // Transform messages into expected format
+        const formattedMessages = response.messages.map(msg => ({
+          user: msg.user || 'unknown',
+          text: msg.text || '',
+          ts: msg.ts
+        }));
+
+        console.log('Formatted messages:', JSON.stringify(formattedMessages, null, 2));
+        return formattedMessages;
+
       } catch (error: any) {
-        // If the error is 'not_in_channel', try to join the channel and retry
         if (error?.data?.error === 'not_in_channel') {
           console.log('Bot not in channel, attempting to join...');
           await this.joinChannel(channelId);
           
           // Retry fetching messages after joining
-          return await this.client.conversations.replies({
+          const retryResponse = await this.client.conversations.replies({
             channel: channelId,
             ts: threadTs,
           });
+
+          if (!retryResponse.ok || !retryResponse.messages) {
+            throw new Error('Failed to fetch messages after joining channel');
+          }
+
+          const formattedMessages = retryResponse.messages.map(msg => ({
+            user: msg.user || 'unknown',
+            text: msg.text || '',
+            ts: msg.ts
+          }));
+
+          return formattedMessages;
         }
         throw error;
       }
@@ -108,15 +137,11 @@ export class SlackService {
   private buildMessageBlocks(sections: { type: string; content: string }[], channelId: string, threadTs?: string) {
     const blocks: any[] = [
       {
-        type: "header",
+        type: "section",
         text: {
-          type: "plain_text",
-          text: "📝 Thread Summary",
-          emoji: true
+          type: "mrkdwn",
+          text: "*Here's the summary!* 📝"
         }
-      },
-      {
-        type: "divider"
       }
     ];
 
@@ -135,7 +160,60 @@ export class SlackService {
 
     // Add formatted sections
     sections.forEach(section => {
-      blocks.push(...this.formatSection(section));
+      if (section.type === 'decision') {
+        const decisionContent = section.content
+          .replace(/^[🎯\s]*Decision\/Outcome:?\s*/i, '')
+          .trim();
+
+        blocks.push({
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `🎯 *Decision/Outcome:*\n• ${decisionContent}`
+          }
+        });
+      }
+      else if (section.type === 'action') {
+        const actionPoints = section.content
+          .replace(/^[⚡\s]*Next Steps:?\s*/i, '')
+          .split(/\n|\.(?=\s|$)/)  // Split by newline or period followed by space/end
+          .filter(point => point.trim())  // Remove empty lines
+          .map(point => `• ${point.trim()}`)  // Add bullet points
+          .join('\n');
+
+        blocks.push({
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `⚡ *Next Steps:*\n${actionPoints}`
+          }
+        });
+      }
+      else if (section.type === 'bullet' || section.type === 'text') {
+        // For regular content, keep bullet points
+        const content = section.content.trim();
+        if (content.toLowerCase().includes('decision') || 
+            content.toLowerCase().includes('next steps') ||
+            content.toLowerCase().includes('outcome')) {
+          // Don't add bullet points to headers
+          blocks.push({
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: content
+            }
+          });
+        } else {
+          // Add bullet points to regular content
+          blocks.push({
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: content.startsWith('•') ? content : `• ${content}`
+            }
+          });
+        }
+      }
     });
 
     // Add feedback section
@@ -189,51 +267,6 @@ export class SlackService {
     });
 
     return sections;
-  }
-
-  private formatSection(section: { type: string; content: string }): any[] {
-    const blocks: any[] = [];
-    let emoji = '•';
-    let color = '';
-
-    // Set emoji and color based on section type
-    switch (section.type) {
-      case 'decision':
-        emoji = '🎯';
-        color = '#2ECC71'; // Green
-        break;
-      case 'action':
-        emoji = '⚡';
-        color = '#3498DB'; // Blue
-        break;
-      case 'blocker':
-        emoji = '🚫';
-        color = '#E74C3C'; // Red
-        break;
-      case 'bullet':
-        emoji = '•';
-        break;
-    }
-
-    // Format the content
-    let formattedText = section.content
-      .replace(/^[•\-]\s*/, '') // Remove bullet points
-      .replace(/^\d+\.\s*/, ''); // Remove numbering
-
-    // Add color formatting if specified
-    if (color) {
-      formattedText = `\`\`\`${formattedText}\`\`\``;
-    }
-
-    blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `${emoji} ${formattedText}`
-      }
-    });
-
-    return blocks;
   }
 
   async postMessageInThread(channelId: string, threadTs: string, summary: string) {
