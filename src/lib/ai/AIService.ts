@@ -1,3 +1,5 @@
+import { PromptService } from './PromptService';
+
 export class AIService {
   private apiKey: string;
   private baseUrl = 'https://api.openai.com/v1/chat/completions';
@@ -8,9 +10,9 @@ export class AIService {
 
   async summarizeThread(messages: any[]) {
     try {
-      const prompt = this.buildPrompt(messages);
-      console.log('Sending request to OpenAI with prompt:', prompt);
-      
+      const prompt = PromptService.generatePrompt(messages);
+      console.log('Generated prompt:', prompt);
+
       const response = await fetch(this.baseUrl, {
         method: 'POST',
         headers: {
@@ -22,7 +24,7 @@ export class AIService {
           messages: [
             {
               role: 'system',
-              content: 'You are a helpful assistant that summarizes Slack threads. Extract key points, decisions, and action items. Be concise but comprehensive.'
+              content: 'You are an expert at analyzing conversations and providing clear, structured summaries.'
             },
             {
               role: 'user',
@@ -30,28 +32,17 @@ export class AIService {
             }
           ],
           temperature: 0.7,
-          max_tokens: 500
+          max_tokens: 1000
         })
       });
 
       const data = await response.json();
-      console.log('Received response from OpenAI:', data);
-
-      if (!data.choices || !data.choices[0]) {
-        console.error('Unexpected API response:', data);
-        throw new Error('Invalid API response format');
-      }
+      console.log('Received response:', data);
 
       return data.choices[0].message?.content || 'Failed to generate summary';
     } catch (error) {
       console.error('Error in AI service:', error);
       throw error;
     }
-  }
-
-  private buildPrompt(messages: any[]): string {
-    return messages
-      .map(msg => `${msg.user}: ${msg.text}`)
-      .join('\n');
   }
 } 
