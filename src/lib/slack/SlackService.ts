@@ -52,4 +52,81 @@ export class SlackService {
       throw error;
     }
   }
+
+  async postMessageInChannel(channelId: string, summary: string, threadTs?: string) {
+    try {
+      console.log('Posting summary in channel:', { channelId });
+      
+      const result = await this.client.chat.postMessage({
+        channel: channelId,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*Here's your thread summary!* 📝\n${threadTs ? `<https://slack.com/archives/${channelId}/p${threadTs.replace('.', '')}|View Original Thread>\n\n` : ''}${summary}`
+            }
+          },
+          {
+            type: "context",
+            elements: [
+              {
+                type: "mrkdwn",
+                text: "Was this summary helpful? React with 👍 or 👎"
+              }
+            ]
+          }
+        ]
+      });
+
+      if (!result.ok) {
+        throw new Error(`Slack API error: ${result.error}`);
+      }
+
+      console.log('Successfully posted summary message in channel');
+      return result;
+    } catch (error) {
+      console.error('Error posting message:', error);
+      throw error;
+    }
+  }
+
+  async postMessageInThread(channelId: string, threadTs: string, summary: string) {
+    try {
+      console.log('Posting summary in thread:', { channelId, threadTs });
+      
+      const result = await this.client.chat.postMessage({
+        channel: channelId,
+        thread_ts: threadTs,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: "*Thread Summary* 📝\n" + summary
+            }
+          },
+          {
+            type: "context",
+            elements: [
+              {
+                type: "mrkdwn",
+                text: "Was this summary helpful? React with 👍 or 👎"
+              }
+            ]
+          }
+        ]
+      });
+
+      if (!result.ok) {
+        throw new Error(`Slack API error: ${result.error}`);
+      }
+
+      console.log('Successfully posted summary message in thread');
+      return result;
+    } catch (error) {
+      console.error('Error posting message:', error);
+      throw error;
+    }
+  }
 } 

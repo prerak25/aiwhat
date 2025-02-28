@@ -40,48 +40,83 @@ export async function POST(req: Request) {
 
     if (payload.type === 'message_action' && payload.callback_id === 'summarize_thread') {
       const slackService = new SlackService(process.env.SLACK_BOT_TOKEN!);
-      
-      // Get thread messages
+      const aiService = new AIService();
+
       const messages = await slackService.getThreadMessages(
         payload.channel.id,
         payload.message.thread_ts || payload.message.ts
       );
-      
-      console.log('Retrieved messages:', messages);
 
-      // Generate summary
-      const aiService = new AIService();
-      const summary = await aiService.summarizeThread(messages || []);
-      
-      console.log('Generated summary:', summary);
+      const summary = await aiService.summarizeThread(messages);
 
-      // Show modal with summary
-      await slackService.openModal({
-        trigger_id: payload.trigger_id,
-        view: {
-          type: 'modal',
-          title: {
-            type: 'plain_text',
-            text: 'Thread Summary'
-          },
-          blocks: [
-            {
-              type: 'section',
-              text: {
-                type: 'mrkdwn',
-                text: summary
-              }
+      // Handle response based on configuration
+      switch (AppConfig.slack.responseMode) {
+        case 'message':
+          await slackService.postMessageInChannel(
+            payload.channel.id,
+            summary,
+            payload.message.thread_ts || payload.message.ts
+          );
+          break;
+
+        case 'modal':
+          await slackService.openModal({
+            trigger_id: payload.trigger_id,
+            view: {
+              type: 'modal',
+              title: {
+                type: 'plain_text',
+                text: 'Thread Summary'
+              },
+              blocks: [
+                {
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text: summary
+                  }
+                }
+              ]
             }
-          ]
-        }
-      });
+          });
+          break;
+
+        case 'both':
+          await Promise.all([
+            slackService.postMessageInChannel(
+              payload.channel.id,
+              summary,
+              payload.message.thread_ts || payload.message.ts
+            ),
+            slackService.openModal({
+              trigger_id: payload.trigger_id,
+              view: {
+                type: 'modal',
+                title: {
+                  type: 'plain_text',
+                  text: 'Thread Summary'
+                },
+                blocks: [
+                  {
+                    type: 'section',
+                    text: {
+                      type: 'mrkdwn',
+                      text: summary
+                    }
+                  }
+                ]
+              }
+            })
+          ]);
+          break;
+      }
 
       return NextResponse.json({ ok: true });
     }
 
-    throw new AppError('Invalid action type', 400, 'INVALID_ACTION');
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('Error in action handler:', error);
     return NextResponse.json(
       { error: 'Failed to process action' },
       { status: 500 }
