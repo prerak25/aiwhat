@@ -1,9 +1,11 @@
 import { WebClient } from '@slack/web-api';
 import { AIService } from '@/lib/ai/AIService';
+import { RedisService } from '@/lib/cache/RedisService';
 
 export class SlackService {
   private client: WebClient;
   private aiService: AIService;
+  private redisService: RedisService;
 
   constructor(private token: string) {
     if (!token) {
@@ -12,6 +14,7 @@ export class SlackService {
     console.log('Initializing Slack client with token starting with:', token.substring(0, 10));
     this.client = new WebClient(token);
     this.aiService = new AIService();
+    this.redisService = new RedisService();
   }
 
   async joinChannel(channelId: string) {
@@ -311,23 +314,35 @@ export class SlackService {
     }
   }
 
-  async summarizeThread(channelId: string, threadTs: string) {
+  async summarizeThread(channelId: string, threadTs: string, userId: string) {
+    const startTime = Date.now();
+    
     try {
-      // Get messages
+      // Get messages (transient)
       const messages = await this.getThreadMessages(channelId, threadTs);
       
-      // Process in memory using AIService
+      // Generate summary immediately
       const summary = await this.aiService.summarizeThread(messages);
       
-      // Post back to thread
+      // Post to thread
       await this.postMessageInChannel(channelId, summary, threadTs);
       
-      // Clear messages from memory
+      // Track only anonymous metrics
+      await this.redisService.trackMetrics(channelId, threadTs, {
+        userId,
+        messageCount: messages.length,
+        processingTimeMs: Date.now() - startTime,
+        isSuccess: true
+      });
+      
+      // Clear sensitive data immediately
       messages.length = 0;
       
       return { success: true };
     } catch (error) {
-      console.error('Error processing thread:', error);
+      // Track error (no sensitive data)
+      await this.redisService.trackError('summary_generation_failed');
+      console.error('Error in summarizeThread:', error);
       throw error;
     }
   }
