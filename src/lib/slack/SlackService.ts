@@ -1,14 +1,17 @@
 import { WebClient } from '@slack/web-api';
+import { AIService } from '@/lib/ai/AIService';
 
 export class SlackService {
   private client: WebClient;
+  private aiService: AIService;
 
-  constructor(token: string) {
+  constructor(private token: string) {
     if (!token) {
       throw new Error('Slack bot token is required');
     }
     console.log('Initializing Slack client with token starting with:', token.substring(0, 10));
     this.client = new WebClient(token);
+    this.aiService = new AIService();
   }
 
   async joinChannel(channelId: string) {
@@ -304,6 +307,41 @@ export class SlackService {
       return result;
     } catch (error) {
       console.error('Error posting message:', error);
+      throw error;
+    }
+  }
+
+  async summarizeThread(channelId: string, threadTs: string) {
+    try {
+      // Get messages
+      const messages = await this.getThreadMessages(channelId, threadTs);
+      
+      // Process in memory using AIService
+      const summary = await this.aiService.summarizeThread(messages);
+      
+      // Post back to thread
+      await this.postMessageInChannel(channelId, summary, threadTs);
+      
+      // Clear messages from memory
+      messages.length = 0;
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error processing thread:', error);
+      throw error;
+    }
+  }
+
+  async handleReaction(payload: any) {
+    try {
+      const { reaction, item } = payload;
+      
+      // Only process reactions to summaries in public channels
+      if (item.type === 'message' && item.channel.startsWith('C')) {
+        console.log(`Reaction ${reaction} added to message in channel ${item.channel}`);
+      }
+    } catch (error) {
+      console.error('Error handling reaction:', error);
       throw error;
     }
   }

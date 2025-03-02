@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@huggingface/inference": "^3.3.6",
-    "@prisma/client": "^6.4.1",
     "@slack/events-api": "^3.0.1",
     "@slack/web-api": "^7.8.0",
     "ioredis": "^5.5.0",
@@ -29,7 +28,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.2.0",
-    "prisma": "^6.4.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

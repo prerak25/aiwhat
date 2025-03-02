@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { SlackService } from '@/lib/slack/SlackService';
 import { AIService } from '@/lib/ai/AIService';
-import { DatabaseService } from '@/lib/db/DatabaseService';
+
 import { RedisService } from '@/lib/cache/RedisService';
 import { rateLimiter } from '@/lib/middleware/rateLimiter';
 import { verifySlackRequest } from '@/lib/utils/verifySlackRequest';
@@ -42,76 +42,20 @@ export async function POST(req: Request) {
       const slackService = new SlackService(process.env.SLACK_BOT_TOKEN!);
       const aiService = new AIService();
 
-      const messages = await slackService.getThreadMessages(
-        payload.channel.id,
-        payload.message.thread_ts || payload.message.ts
-      );
+      try {
+        await slackService.summarizeThread(
+          payload.channel.id,
+          payload.message.thread_ts || payload.message.ts
+        );
 
-      const summary = await aiService.summarizeThread(messages);
-
-      // Handle response based on configuration
-      switch (AppConfig.slack.responseMode) {
-        case 'message':
-          await slackService.postMessageInChannel(
-            payload.channel.id,
-            summary,
-            payload.message.thread_ts || payload.message.ts
-          );
-          break;
-
-        case 'modal':
-          await slackService.openModal({
-            trigger_id: payload.trigger_id,
-            view: {
-              type: 'modal',
-              title: {
-                type: 'plain_text',
-                text: 'Thread Summary'
-              },
-              blocks: [
-                {
-                  type: 'section',
-                  text: {
-                    type: 'mrkdwn',
-                    text: summary
-                  }
-                }
-              ]
-            }
-          });
-          break;
-
-        case 'both':
-          await Promise.all([
-            slackService.postMessageInChannel(
-              payload.channel.id,
-              summary,
-              payload.message.thread_ts || payload.message.ts
-            ),
-            slackService.openModal({
-              trigger_id: payload.trigger_id,
-              view: {
-                type: 'modal',
-                title: {
-                  type: 'plain_text',
-                  text: 'Thread Summary'
-                },
-                blocks: [
-                  {
-                    type: 'section',
-                    text: {
-                      type: 'mrkdwn',
-                      text: summary
-                    }
-                  }
-                ]
-              }
-            })
-          ]);
-          break;
+        return NextResponse.json({ ok: true });
+      } catch (error) {
+        console.error('Error:', error);
+        return NextResponse.json(
+          { error: 'Failed to process action' },
+          { status: 500 }
+        );
       }
-
-      return NextResponse.json({ ok: true });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
@@ -138,7 +82,6 @@ async function handleSummarizeAction(payload: any) {
 
   const slackService = new SlackService(process.env.SLACK_BOT_TOKEN!);
   const aiService = new AIService();
-  const dbService = new DatabaseService();
 
   const messages = await slackService.getThreadMessages(
     payload.channel.id,
