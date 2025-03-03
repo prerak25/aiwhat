@@ -24,13 +24,17 @@ export class TestHarness {
         console.log(`${msg.user}: ${msg.text}`);
       });
 
-      // Generate summary
+      // Updated to handle both TL;DR and summary
+      const { tldr, summary } = await this.aiService.summarizeThread(messages);
+      
+      console.log('\n=== Generated TL;DR ===');
+      console.log(tldr);
       console.log('\n=== Generated Summary ===');
-      const summary = await this.aiService.summarizeThread(messages);
       console.log(summary);
 
       return {
         messages,
+        tldr,
         summary,
         messageCount: messages.length
       };

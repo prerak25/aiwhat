@@ -175,50 +175,25 @@ export class RedisService {
     userId: string,
     messageCount: number,
     processingTimeMs: number,
-    isSuccess: boolean
+    isSuccess: boolean,
+    tldrLength?: number,  // Added to track TL;DR metrics
+    summaryLength?: number
   }) {
     try {
-      const date = new Date().toISOString().split('T')[0]
-      const key = `metrics:${date}`
-      
-      console.log('Tracking metrics:', {
-        channelId,
-        threadTs,
-        metadata,
-        key
-      })
+      const date = new Date().toISOString().split('T')[0];
+      const key = `metrics:${date}`;
 
-      // Track channel-specific count
-      const channelCount = await redis.hincrby(key, `channel:${channelId}:count`, 1)
-      console.log('Updated channel count:', channelCount)
+      await redis.hset(key, {
+        [`channel:${channelId}:count`]: await redis.hincrby(key, `channel:${channelId}:count`, 1),
+        'total_requests': await redis.hincrby(key, 'total_requests', 1),
+        'avg_tldr_length': await this.updateAverage(key, 'avg_tldr_length', metadata.tldrLength || 0),
+        'avg_summary_length': await this.updateAverage(key, 'avg_summary_length', metadata.summaryLength || 0),
+        'avg_processing_time': await this.updateAverage(key, 'avg_processing_time', metadata.processingTimeMs)
+      });
 
-      // Track total requests
-      const totalCount = await redis.hincrby(key, 'total_requests', 1)
-      console.log('Updated total count:', totalCount)
-
-      // Track averages
-      const avgMessages = await this.updateAverage(key, 'avg_messages', metadata.messageCount)
-      const avgTime = await this.updateAverage(key, 'avg_processing_time', metadata.processingTimeMs)
-
-      console.log('Updated metrics:', {
-        channelCount,
-        totalCount,
-        avgMessages,
-        avgTime
-      })
-
-      // Set 30-day expiration
-      await redis.expire(key, 60 * 60 * 24 * 30)
-
-      return {
-        channelCount,
-        totalCount,
-        avgMessages,
-        avgTime
-      }
+      await redis.expire(key, 60 * 60 * 24 * 30); // 30 days
     } catch (error) {
-      console.error('Error tracking metrics:', error)
-      throw error // Throw error to handle it in the calling function
+      console.error('Error tracking metrics:', error);
     }
   }
 

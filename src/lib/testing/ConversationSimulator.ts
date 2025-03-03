@@ -8,11 +8,10 @@ type SimulatedMessage = {
 export class ConversationSimulator {
   private conversationTemplates = {
     technicalDiscussion: [
-      { role: "engineer1", text: "Has anyone encountered issues with the latest API deployment?" },
-      { role: "engineer2", text: "Yes, we're seeing increased latency in the payment endpoints." },
-      { role: "devops", text: "Checking the logs now. Seeing some timeout errors in the payment service." },
-      { role: "engineer1", text: "Could it be related to the database changes we made yesterday?" },
-      // ... more messages
+      { role: "engineer1", text: "We need to migrate the database by next week." },
+      { role: "engineer2", text: "That's tight. We'll need to plan the downtime." },
+      { role: "devops", text: "I can schedule maintenance window for Sunday 2AM." },
+      // More focused on key decisions/actions for better TL;DR testing
     ],
     projectPlanning: [
       { role: "pm", text: "Let's discuss the Q2 roadmap for the mobile app." },

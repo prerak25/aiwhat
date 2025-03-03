@@ -16,53 +16,63 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  console.log('🚀 POST request received', new Date().toISOString());
-  
   try {
-    const body = await req.text();
-    console.log('📝 Request body:', body);
+    console.log('Received Slack action request');
+    const data = await req.formData();
+    const payloadStr = data.get('payload') as string;
+    console.log('Raw payload:', payloadStr);
     
-    const signature = req.headers.get('x-slack-signature');
-    const timestamp = req.headers.get('x-slack-request-timestamp');
-    
-    console.log('🔐 Verification headers:', { signature, timestamp });
+    const payload = JSON.parse(payloadStr);
+    console.log('Parsed payload:', payload);
 
-    // Skip verification in development if needed
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('Skipping signature verification in development');
-    } else if (!verifySlackRequest(signature || '', timestamp || '', body)) {
-      console.log('❌ Invalid request signature');
-      return NextResponse.json({ error: 'Invalid request signature' }, { status: 401 });
+    // Handle message action
+    if (payload.type === 'message_action') {
+      console.log('Message action received');
+      const slackService = new SlackService(process.env.SLACK_BOT_TOKEN as string);
+      
+      const channelId = payload.channel.id;
+      const threadTs = payload.message.thread_ts || payload.message.ts;
+      const userId = payload.user.id;
+
+      console.log('Processing request with:', { channelId, threadTs, userId });
+
+      // Generate and post summary
+      await slackService.summarizeThread(channelId, threadTs, userId);
+      console.log('Summary posted successfully');
+
+      return NextResponse.json({ message: 'Processing summary request' });
     }
 
-    const payload = JSON.parse(new URLSearchParams(body).get('payload') || '');
-    console.log('📦 Parsed payload:', payload);
+    // Handle block actions (for app home or other interactive components)
+    if (payload.type === 'block_actions') {
+      console.log('Block action received:', payload.actions[0]);
+      const action = payload.actions[0];
+      
+      if (action.action_id === 'get_tldr') {
+        console.log('TLDR action triggered');
+        const slackService = new SlackService(process.env.SLACK_BOT_TOKEN as string);
+        
+        const channelId = payload.channel.id;
+        const threadTs = payload.message.thread_ts || payload.message.ts;
+        const userId = payload.user.id;
 
-    if (payload.type === 'message_action' && payload.callback_id === 'summarize_thread') {
-      const slackService = new SlackService(process.env.SLACK_BOT_TOKEN!);
-      const aiService = new AIService();
+        console.log('Processing request with:', { channelId, threadTs, userId });
 
-      try {
-        await slackService.summarizeThread(
-          payload.channel.id,
-          payload.message.thread_ts || payload.message.ts
-        );
+        // Generate and post summary
+        await slackService.summarizeThread(channelId, threadTs, userId);
+        console.log('Summary posted successfully');
 
-        return NextResponse.json({ ok: true });
-      } catch (error) {
-        console.error('Error:', error);
-        return NextResponse.json(
-          { error: 'Failed to process action' },
-          { status: 500 }
-        );
+        return NextResponse.json({ message: 'Processing summary request' });
       }
     }
 
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    console.log('No matching action found');
+    return NextResponse.json({ message: 'No action taken' });
+
   } catch (error) {
-    console.error('Error in action handler:', error);
+    console.error('Error processing Slack action:', error);
     return NextResponse.json(
-      { error: 'Failed to process action' },
+      { error: 'Failed to process request', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

@@ -1,5 +1,6 @@
 {
-  "name": "aiwhat",
+  "name": "tldr-slack-app",
+  "description": "A Slack app that provides quick TL;DR and detailed summaries for thread conversations",
   "version": "0.1.0",
   "private": true,
   "scripts": {

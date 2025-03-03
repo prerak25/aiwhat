@@ -10,8 +10,17 @@ export async function GET(req: Request) {
 
     // Get metrics
     if (view === 'all' || view === 'metrics') {
-      data.metrics = await redis.getTodayMetrics()
-      console.log('Dashboard metrics:', data.metrics)
+      const metrics = await redis.getTodayMetrics()
+      data.metrics = {
+        ...metrics,
+        tldrStats: {
+          avgLength: metrics.avg_tldr_length,
+          total: metrics.total_requests
+        },
+        summaryStats: {
+          avgLength: metrics.avg_summary_length
+        }
+      }
     }
 
     return Response.json({
